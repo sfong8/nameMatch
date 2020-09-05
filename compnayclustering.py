@@ -1,25 +1,55 @@
 import pandas as pd
-import jellyfish
 import re
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-# Import your data to a Pandas.DataFrame
-df = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\data\raw\test.csv')
-
-
-# Grab the column you'd like to group, filter out duplicate values
-# and make sure the values are Unicode
-vals = df['CompanyName'].unique().astype('U')
 
 import re
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sparse_dot_topn import awesome_cossim_topn
+from nltk.stem import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
+
+ps = PorterStemmer()
 
 # Instaniate our lookup hash table
 group_lookup = {}
+names_dict = {'LTD':'LIMITED','(':'', ')':'', ',':'', '.':'', ' - ':' ', '  ':' ',"'":'','&':' AND '}
 
+trading_as_list = ['T/AS ','T/A ','TRADING AS','TRADINGAS', 'T / A',]
+
+def newTradingAs(companyname,word_list):
+    new_companyName = companyname
+    for x in word_list:
+        if x in companyname:
+            new_companyName = str.strip(companyname.partition(x)[2])
+            break
+    return new_companyName
+
+def replace_all(dict, str):
+    for key in dict:
+        str = str.replace(key, dict[key])
+    return str
+
+def process_companyName(cName):
+    new_str =  str.lower(cName)
+    new_str = replace_all(names_dict,new_str)
+    new_str = newTradingAs(new_str,trading_as_list)
+    return ' '.join(new_str.split())
+def stemName(companyName):
+    return ' '.join([ps.stem(i) for i in companyName.split()])
+# Construct your vectorizer for building the TF-IDF matrix
+
+
+# Import your data to a Pandas.DataFrame
+df = pd.read_csv(r'test.csv')
+df=df[['CompanyName']]
+df['NewName']=df['CompanyName'].apply(lambda x: process_companyName(x))
+#df['stemmedName']=df['NewName'].apply(lambda x: stemName(x))
+
+# Grab the column you'd like to group, filter out duplicate values
+# and make sure the values are Unicode
+vals = df['NewName'].unique().astype('U')
 
 # Write a function for cleaning strings and returning an array of ngrams
 def ngrams_analyzer(string):
@@ -58,12 +88,10 @@ def add_pair_to_lookup(row, col):
         add_vals_to_lookup(row, row, col)
 
 
-# Construct your vectorizer for building the TF-IDF matrix
-vectorizer = TfidfVectorizer(analyzer=ngrams_analyzer)
-
 # Grab the column you'd like to group, filter out duplicate values
 # and make sure the values are Unicode
-vals = df['CompanyName'].unique().astype('U')
+vectorizer = TfidfVectorizer(analyzer=ngrams_analyzer)
+vals = df['NewName'].unique().astype('U')
 
 # Build the matrix!!!
 tfidf_matrix = vectorizer.fit_transform(vals)
@@ -79,6 +107,6 @@ for row, col in zip(coo_matrix.row, coo_matrix.col):
     if row != col:
         add_pair_to_lookup(vals[row], vals[col])
 
-df['Group'] = df['CompanyName'].map(group_lookup).fillna(df['CompanyName'])
+df['Group'] = df['NewName'].map(group_lookup).fillna(df['NewName'])
 
 #df.to_csv('./dol-data-grouped.csv')
