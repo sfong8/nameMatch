@@ -15,7 +15,8 @@ importer_names = importer_list[['NAME']].drop_duplicates()
 x= pd.read_csv(r'./HMRC/matched.csv')
 y=x['NAME'][0]
 import re
-
+from datetime import datetime
+print('start',datetime.now())
 def ngrams(string, n=3):
     #string = fix_text(string) # fix text encoding issues
     string = string.encode("ascii", errors="ignore").decode() #remove non ascii chars
@@ -34,7 +35,8 @@ def ngrams(string, n=3):
     return [''.join(ngram) for ngram in ngrams]
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-org_names = importer_names['NAME'].unique()
+org_names = importer_names[['NAME']]
+org_name_clean=importer_names['NAME'].unique()
 vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams)
 tf_idf_matrix = vectorizer.fit_transform(org_names)
 
@@ -61,7 +63,7 @@ def awesome_cossim_top(A, B, ntop, lower_bound=0):
     data = np.zeros(nnz_max, dtype=A.dtype)
 
 
-ct.sparse_dot_topn(
+    ct.sparse_dot_topn(
     M, N, np.asarray(A.indptr, dtype=idx_dtype),
     np.asarray(A.indices, dtype=idx_dtype),
     A.data,
@@ -74,8 +76,6 @@ ct.sparse_dot_topn(
     return csr_matrix((data, indices, indptr), shape=(M, N))
 
 
-
-
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import re
@@ -86,8 +86,8 @@ tfidf = vectorizer.fit_transform(org_name_clean)
 print('Vecorizing completed...')
 from sklearn.neighbors import NearestNeighbors
 nbrs = NearestNeighbors(n_neighbors=1, n_jobs=-1).fit(tfidf)
-org_column = 'buyer' #column to match against in the messy data
-unique_org = set(names[org_column].values) # set used for increased performance
+org_column = 'NAME' #column to match against in the messy data
+unique_org = set(x[org_column].values) # set used for increased performance
 ###matching query:
 def getNearestN(query):
   queryTFIDF_ = vectorizer.transform(query)
@@ -103,8 +103,10 @@ unique_org = list(unique_org) #need to convert back to a list
 print('finding matches...')
 matches = []
 for i,j in enumerate(indices):
-  temp = [round(distances[i][0],2), clean_org_names.values[j][0][0],unique_org[i]]
-  matches.append(temp)
+    print((j))
+    temp = [round(distances[i][0],2), org_names.values[j][0][0],unique_org[i]]
+    matches.append(temp)
 print('Building data frame...')
 matches = pd.DataFrame(matches, columns=['Match confidence (lower is better)','Matched name','Origional name'])
 print('Done')
+print('end',datetime.now())
