@@ -7,7 +7,7 @@ import re
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sparse_dot_topn import awesome_cossim_topn
-
+from sklearn.metrics.pairwise import cosine_similarity
 # Instaniate our lookup hash table
 group_lookup = {}
 
@@ -51,7 +51,7 @@ vals = df['NewName'].unique().astype('U')
 # Write a function for cleaning strings and returning an array of ngrams
 def ngrams_analyzer(string):
     string = re.sub(r'[,-./]', r'', string)
-    ngrams = zip(*[string[i:] for i in range(2)])  # N-Gram length is 5
+    ngrams = zip(*[string[i:] for i in range(2)])  # N-Gram length is 2
     return [''.join(ngram) for ngram in ngrams]
 
 
@@ -84,6 +84,16 @@ def add_pair_to_lookup(row, col):
         # The name is arbitrary, so just make it the row
         add_vals_to_lookup(row, row, col)
 
+###function to get the cosine similarty score (above a certain threshold) and return the unique values indexs
+def getCosineSim(tfidf,min_threshold=0.8):
+    cosine_df = pd.DataFrame()
+    for x in range(len(vals)):
+        cossim_matrix = cosine_similarity(tfidf_matrix[x], tfidf_matrix).flatten()
+        z=[[x,i, cossim_matrix[i]] for i in range(cossim_matrix.__len__()) if cossim_matrix[i]>min_threshold]
+        cosine_df=pd.concat([cosine_df,pd.DataFrame(z)])
+    cosine_df.columns = ['val_index','val_index2','cosineSim_score']
+    return cosine_df
+
 
 # Grab the column you'd like to group, filter out duplicate values
 # and make sure the values are Unicode
@@ -93,22 +103,14 @@ vals = df['NewName'].unique().astype('U')
 # Build the matrix!!!
 tfidf_matrix = vectorizer.fit_transform(vals)
 
-cosine_matrix = awesome_cossim_topn(tfidf_matrix, tfidf_matrix.transpose(), vals.size, 0.8)
-
-# Build a coordinate matrix
-coo_matrix = cosine_matrix.tocoo()
-
-# for each row and column in coo_matrix
-# if they're not the same string add them to the group lookup
-for row, col in zip(coo_matrix.row, coo_matrix.col):
-    if row != col:
-        add_pair_to_lookup(vals[row], vals[col])
-
-df['Group'] = df['NewName'].map(group_lookup)#.fillna(df['NewName'])
-print(df['Group'].isna().sum())
-#df.to_csv('./dol-data-grouped.csv')
 
 ###
-from sklearn.metrics.pairwise import cosine_similarity
-print ("cosine scores ==> ",cosine_similarity(tfidf_matrix[0:46], tfidf_matrix) )
-df.to_csv('test_Cplus.csv',index=None)
+
+cosine_df=getCosineSim(tfidf=tfidf_matrix,min_threshold=0.8)
+for row, col in zip(cosine_df.val_index, cosine_df.val_index2):
+    if row != col:
+        add_pair_to_lookup(vals[row], vals[col])
+df['Group'] = df['NewName'].map(group_lookup).fillna(df['NewName'])
+print(df['Group'].isna().sum())
+
+df.to_csv('test_nonCplus.csv',index=None)
