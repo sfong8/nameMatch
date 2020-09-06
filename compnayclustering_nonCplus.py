@@ -107,10 +107,18 @@ tfidf_matrix = vectorizer.fit_transform(vals)
 ###
 
 cosine_df=getCosineSim(tfidf=tfidf_matrix,min_threshold=0.8)
+map_dict = {v: k for v, k in enumerate(vals)}
+
+cosine_df2= cosine_df.copy()
+cosine_df2=cosine_df2[cosine_df2['val_index']!=cosine_df2['val_index2']]
+cosine_df2['val_index']=cosine_df2['val_index'].apply(lambda x:map_dict.get(x) )
+cosine_df2['val_index2']=cosine_df2['val_index2'].apply(lambda x:map_dict.get(x) )
 for row, col in zip(cosine_df.val_index, cosine_df.val_index2):
     if row != col:
         add_pair_to_lookup(vals[row], vals[col])
 df['Group'] = df['NewName'].map(group_lookup).fillna(df['NewName'])
+
+df2 = pd.merge(df,cosine_df2,how='left',left_on=['NewName', 'Group'],right_on=['val_index', 'val_index2'])
 print(df['Group'].isna().sum())
 
 df.to_csv('test_nonCplus.csv',index=None)
