@@ -7,14 +7,12 @@ import re
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sparse_dot_topn import awesome_cossim_topn
-from nltk.stem import PorterStemmer
-from nltk.tokenize import sent_tokenize, word_tokenize
-
-ps = PorterStemmer()
 
 # Instaniate our lookup hash table
 group_lookup = {}
-names_dict = {'LTD':'LIMITED','(':'', ')':'', ',':'', '.':'', ' - ':' ', '  ':' ',"'":'','&':' AND '}
+
+
+names_dict = {'LTD':'LIMITED','(':'', ')':'', ',':'', '.':'', '-':' ', '  ':' ',"'":'','&':' AND '}
 
 trading_as_list = ['T/AS ','T/A ','TRADING AS','TRADINGAS', 'T / A',]
 
@@ -32,12 +30,11 @@ def replace_all(dict, str):
     return str
 
 def process_companyName(cName):
-    new_str =  str.lower(cName)
+    new_str =  str.upper(cName)
     new_str = replace_all(names_dict,new_str)
     new_str = newTradingAs(new_str,trading_as_list)
     return ' '.join(new_str.split())
-def stemName(companyName):
-    return ' '.join([ps.stem(i) for i in companyName.split()])
+
 # Construct your vectorizer for building the TF-IDF matrix
 
 
@@ -54,7 +51,7 @@ vals = df['NewName'].unique().astype('U')
 # Write a function for cleaning strings and returning an array of ngrams
 def ngrams_analyzer(string):
     string = re.sub(r'[,-./]', r'', string)
-    ngrams = zip(*[string[i:] for i in range(5)])  # N-Gram length is 5
+    ngrams = zip(*[string[i:] for i in range(2)])  # N-Gram length is 5
     return [''.join(ngram) for ngram in ngrams]
 
 
