@@ -5,6 +5,9 @@ importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\impor
 
 importer_names = importer_list[['NAME']].drop_duplicates()
 
+names_dict = {'LTD':'LIMITED','(':'', ')':'', ',':'', '.':'', '-':' ', '  ':' ',"'":'','&':' AND '}
+
+trading_as_list = ['T/AS ','T/A ','TRADING AS','TRADINGAS', 'T / A',]
 # sample_df = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\data\raw\company_names.csv')
 #
 #
