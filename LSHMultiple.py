@@ -28,8 +28,8 @@ def process_companyName(cName):
     new_str = newTradingAs(new_str,trading_as_list)
     return ' '.join(new_str.split())
 
-importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\importsNames.csv')
-# importer_list.columns = ['NAME']
+importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\company_names.csv')
+importer_list.columns = ['NAME']
 importer_list['NAME'] = importer_list['NAME'].apply(lambda x: process_companyName(x))
 
 df = importer_list[['NAME']].drop_duplicates().reset_index(drop=True)
@@ -47,7 +47,7 @@ y['NAME'] = y['NAME'].apply(lambda x: process_companyName(x))
 
 def ngrams_analyzer(string):
     string = re.sub(r'[,-./]', r'', string)
-    ngrams = zip(*[string[i:] for i in range(5)])  # N-Gram length is 5
+    ngrams = zip(*[string[i:] for i in range(2)])  # N-Gram length is 5
     return [''.join(ngram) for ngram in ngrams]
 
 
@@ -55,10 +55,7 @@ def ngrams_analyzer(string):
 
 
 tfidf = TfidfVectorizer(
-    analyzer='word',
-    ngram_range=(1, 3),
-    min_df=0,
-    stop_words='english')
+    analyzer=ngrams_analyzer)
 X_tfidf = tfidf.fit_transform(df['NAME'])
 
 
@@ -106,10 +103,15 @@ def train_lsh(X_tfidf, n_vectors, seed=None):
 n_vectors = 16
 model = train_lsh(X_tfidf, n_vectors, seed=143)
 
+
+
+
+
 def search_nearby_bins(query_bin_bits, table, search_radius=3, candidate_set=None):
     """
     For a given query vector and trained LSH model's table
     return all candidate neighbors with the specified search radius.
+
     Example
     -------
     model = train_lsh(X_tfidf, n_vectors=16, seed=143)
@@ -141,7 +143,6 @@ def search_nearby_bins(query_bin_bits, table, search_radius=3, candidate_set=Non
     return candidate_set
 
 
-from sklearn.metrics.pairwise import pairwise_distances
 
 
 def get_nearest_neighbors(X_tfidf, query_vector, model, max_search_radius=3):
@@ -169,24 +170,92 @@ def get_nearest_neighbors(X_tfidf, query_vector, model, max_search_radius=3):
     return nearest_neighbors
 
 
+def get_nearest_neighbors_jaccard(X_tfidf, query_vector, model, max_search_radius=3):
+    table = model['table']
+    random_vectors = model['random_vectors']
+
+    # compute bin index for the query vector, in bit representation.
+    bin_index_bits = np.ravel(query_vector.dot(random_vectors) >= 0)
+
+    # search nearby bins and collect candidates
+    candidate_set = set()
+    for search_radius in range(max_search_radius + 1):
+        candidate_set = search_nearby_bins(bin_index_bits, table, search_radius, candidate_set)
+
+    # sort candidates by their true distances from the query
+    candidate_list = list(candidate_set)
+    candidates = X_tfidf[candidate_list]
+    distance = pairwise_distances(candidates.todense(), query_vector.todense(), metric='jaccard').flatten()
+    #distance = pairwise_distances(candidates, query_vector, metric='l2').flatten()
+
+    distance_col = 'distance'
+   # distance_col2 = 'jaccard_distance'
+    #distance_col3 = 'hamming_distance'
+    nearest_neighbors = pd.DataFrame({
+        'id': candidate_list, distance_col: distance
+    }).sort_values(distance_col).reset_index(drop=True)
+
+    return nearest_neighbors
+def get_nearest_neighbors_hamming(X_tfidf, query_vector, model, max_search_radius=3):
+    table = model['table']
+    random_vectors = model['random_vectors']
+
+    # compute bin index for the query vector, in bit representation.
+    bin_index_bits = np.ravel(query_vector.dot(random_vectors) >= 0)
+
+    # search nearby bins and collect candidates
+    candidate_set = set()
+    for search_radius in range(max_search_radius + 1):
+        candidate_set = search_nearby_bins(bin_index_bits, table, search_radius, candidate_set)
+
+    # sort candidates by their true distances from the query
+    candidate_list = list(candidate_set)
+    candidates = X_tfidf[candidate_list]
+    distance = pairwise_distances(candidates, query_vector, metric='euclidean').flatten()
+
+    distance_col = 'distance'
+    nearest_neighbors = pd.DataFrame({
+        'id': candidate_list, distance_col: distance
+    }).sort_values(distance_col).reset_index(drop=True)
+
+    return nearest_neighbors
+
 y_tfidf = tfidf.transform(y['NAME'])
 master_df = pd.DataFrame()
-
-
+cosine_df  = pd.DataFrame()
+jaccard_df  = pd.DataFrame()
+hamming_df  = pd.DataFrame()
 for i in range(y.shape[0]):
-
     query_vector = y_tfidf[i]
     nearest_neighbors = get_nearest_neighbors(X_tfidf, query_vector, model, max_search_radius=5)
-    print('dimension: ', nearest_neighbors.shape)
-    nearest_neighbors.head()
+    nearest_neighbors_j = get_nearest_neighbors_jaccard(X_tfidf, query_vector, model, max_search_radius=5)
+    nearest_neighbors_h = get_nearest_neighbors_hamming(X_tfidf, query_vector, model, max_search_radius=5)
+
+    nearest_neighbors=nearest_neighbors.head(1)
+    nearest_neighbors_j = nearest_neighbors_j.head(1)
+    nearest_neighbors_h = nearest_neighbors_h.head(1)
     nearest_neighbors['ActualName']=y['NAME'][i]
-    master_df=pd.concat([master_df,nearest_neighbors.head(1)])
-    print(y['NAME'][i],df['NAME'][nearest_neighbors.head(1)['id']])
+    nearest_neighbors_j['ActualName'] = y['NAME'][i]
+    nearest_neighbors_h['ActualName'] = y['NAME'][i]
+
+    cosine_df=pd.concat([cosine_df,nearest_neighbors])
+    jaccard_df = pd.concat([jaccard_df, nearest_neighbors_j])
+    hamming_df = pd.concat([hamming_df, nearest_neighbors_h])
+    print(y['NAME'][i],df['NAME'][nearest_neighbors['id']],df['NAME'][nearest_neighbors_j['id']],df['NAME'][nearest_neighbors_h['id']])
 
 
+cosine_df=cosine_df.merge(df, on='id', how='left')
+cosine_df=cosine_df.rename(columns={'id': 'c_id','NAME':'matched_c','distance':'distance_c'})
 
+jaccard_df=jaccard_df.merge(df, on='id', how='left')
+jaccard_df=jaccard_df.rename(columns={'id': 'j_id','NAME':'matched_j','distance':'distance_j'})
 
+hamming_df=hamming_df.merge(df, on='id', how='left')
+hamming_df=hamming_df.rename(columns={'id': 'h_id','NAME':'matched_h','distance':'distance_h'})
 
-# we can perform a join with the original table to get the description
-# for sanity checking purpose
-master= master_df.merge(df, on='id', how='left')
+master_df = pd.merge(cosine_df,jaccard_df,how='left',on='ActualName')
+master_df = pd.merge(master_df,hamming_df,how='left',on='ActualName')
+
+master_df=master_df[['ActualName', 'matched_c', 'distance_c'
+                     , 'matched_j', 'distance_j','matched_h', 'distance_h']]
+master2= master_df[(master_df['distance_c']+master_df['distance_j']+master_df['distance_h']!=0)]

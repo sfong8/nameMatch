@@ -17,7 +17,7 @@ import re
 import time
 from datasketch import MinHash, MinHashLSHForest,MinHashLSH
 from tqdm import tqdm
-y= pd.read_csv(r'./HMRC/matched.csv')
+y= pd.read_csv(r'C:/Users/S/PycharmProjects/CompanyNames/HMRC/matched.csv')
 def preprocess(text):
     text = re.sub(r'[^\w\s]','',text)
     tokens = text.lower()
@@ -26,7 +26,7 @@ def preprocess(text):
 
 
 lsh = MinHashLSH(
-    threshold= 0.8, # Jaccard similarity threshold
+    threshold= 0.5, # Jaccard similarity threshold
     num_perm=128,   # Number of hash functions
 )
 
@@ -55,7 +55,24 @@ def query(lsh, sentence):
     return similar_sentences_ids
 
 
-y= pd.read_csv(r'./HMRC/matched.csv')
 
-query_review= y['NAME'][0]
-similar_reviews_ids = query(lsh, query_review)
+
+
+def compute_jaccard(sentence1, sentence2):
+    words_in_sentence1 = set(sentence1.split(" "))
+    words_in_sentence2 = set(sentence2.split(" "))
+
+    return len(words_in_sentence1 & words_in_sentence2) / len(words_in_sentence1 | words_in_sentence2)
+
+
+master_df = pd.DataFrame()
+
+for i in range(y.shape[0]):
+    query_review = y['NAME'][i]
+    similar_reviews_ids = query(lsh, query_review)
+    similar_reviews_ids2 = pd.DataFrame(query(lsh, query_review),columns=['id'])
+    similar_reviews_ids2['NAME']=query_review
+    similar_reviews_ids2['MATCHED_NAME']=similar_reviews_ids2.id.apply(lambda x : df['NAME'][x])
+    similar_reviews_ids2['score']=similar_reviews_ids2.id.apply(lambda x : compute_jaccard(query_review,df['NAME'][x]))
+    similar_reviews_ids2=similar_reviews_ids2.sort_values(['score'],ascending=False)
+    master_df=pd.concat([master_df,similar_reviews_ids2.head(1)])
