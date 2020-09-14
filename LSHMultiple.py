@@ -28,7 +28,7 @@ def process_companyName(cName):
     new_str = newTradingAs(new_str,trading_as_list)
     return ' '.join(new_str.split())
 
-importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\company_names.csv')
+importer_list = pd.read_csv(r'./Data/company_names.csv')
 importer_list.columns = ['NAME']
 importer_list['NAME'] = importer_list['NAME'].apply(lambda x: process_companyName(x))
 
@@ -41,7 +41,7 @@ df['id']=df.index
 # x=x[['NAME']].sample(100)
 # x.to_csv('matched.csv',index=None )
 
-y= pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames/HMRC/matched.csv')
+y= pd.read_csv(r'./Data/matched.csv')
 y['NAME'] = y['NAME'].apply(lambda x: process_companyName(x))
 
 
@@ -185,8 +185,8 @@ def get_nearest_neighbors_jaccard(X_tfidf, query_vector, model, max_search_radiu
     # sort candidates by their true distances from the query
     candidate_list = list(candidate_set)
     candidates = X_tfidf[candidate_list]
-    distance = pairwise_distances(candidates.todense(), query_vector.todense(), metric='jaccard').flatten()
-    #distance = pairwise_distances(candidates, query_vector, metric='l2').flatten()
+    #distance = pairwise_distances(candidates.todense(), query_vector.todense(), metric='hamming').flatten()
+    distance = pairwise_distances(candidates, query_vector, metric='euclidean').flatten()
 
     distance_col = 'distance'
    # distance_col2 = 'jaccard_distance'
@@ -211,7 +211,7 @@ def get_nearest_neighbors_hamming(X_tfidf, query_vector, model, max_search_radiu
     # sort candidates by their true distances from the query
     candidate_list = list(candidate_set)
     candidates = X_tfidf[candidate_list]
-    distance = pairwise_distances(candidates, query_vector, metric='euclidean').flatten()
+    distance = pairwise_distances(candidates, query_vector, metric='manhattan').flatten()
 
     distance_col = 'distance'
     nearest_neighbors = pd.DataFrame({
@@ -225,11 +225,12 @@ master_df = pd.DataFrame()
 cosine_df  = pd.DataFrame()
 jaccard_df  = pd.DataFrame()
 hamming_df  = pd.DataFrame()
-for i in range(y.shape[0]):
+from tqdm import tqdm
+for i in tqdm(range(y.shape[0])):
     query_vector = y_tfidf[i]
-    nearest_neighbors = get_nearest_neighbors(X_tfidf, query_vector, model, max_search_radius=5)
-    nearest_neighbors_j = get_nearest_neighbors_jaccard(X_tfidf, query_vector, model, max_search_radius=5)
-    nearest_neighbors_h = get_nearest_neighbors_hamming(X_tfidf, query_vector, model, max_search_radius=5)
+    nearest_neighbors = get_nearest_neighbors(X_tfidf, query_vector, model, max_search_radius=10)
+    nearest_neighbors_j = get_nearest_neighbors_jaccard(X_tfidf, query_vector, model, max_search_radius=10)
+    nearest_neighbors_h = get_nearest_neighbors_hamming(X_tfidf, query_vector, model, max_search_radius=10)
 
     nearest_neighbors=nearest_neighbors.head(1)
     nearest_neighbors_j = nearest_neighbors_j.head(1)
@@ -241,7 +242,7 @@ for i in range(y.shape[0]):
     cosine_df=pd.concat([cosine_df,nearest_neighbors])
     jaccard_df = pd.concat([jaccard_df, nearest_neighbors_j])
     hamming_df = pd.concat([hamming_df, nearest_neighbors_h])
-    print(y['NAME'][i],df['NAME'][nearest_neighbors['id']],df['NAME'][nearest_neighbors_j['id']],df['NAME'][nearest_neighbors_h['id']])
+    #print(y['NAME'][i],df['NAME'][nearest_neighbors['id']],df['NAME'][nearest_neighbors_j['id']],df['NAME'][nearest_neighbors_h['id']])
 
 
 cosine_df=cosine_df.merge(df, on='id', how='left')
@@ -259,3 +260,18 @@ master_df = pd.merge(master_df,hamming_df,how='left',on='ActualName')
 master_df=master_df[['ActualName', 'matched_c', 'distance_c'
                      , 'matched_j', 'distance_j','matched_h', 'distance_h']]
 master2= master_df[(master_df['distance_c']+master_df['distance_j']+master_df['distance_h']!=0)]
+
+def majority_voting(x):
+    if x['matched_c'] == x['matched_h']:
+        return x['matched_c']
+    elif x['matched_j'] == x['matched_h']:
+        return x['matched_j']
+    else:
+        return x['matched_c']
+
+master2['votedName']=master2.apply(majority_voting, axis=1)
+
+master3=master2[['distance_h']]
+max_dist_h = max(master3['distance_h'])
+master3['norm2']=1/(1+master3['distance_h'])
+master3['norm']=1-(master3['distance_h']/max_dist_h)

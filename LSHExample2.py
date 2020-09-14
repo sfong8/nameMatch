@@ -1,8 +1,37 @@
 import pandas as pd
-import jellyfish
 import numpy as np
-importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\importsNames.csv')
-# importer_list.columns = ['NAME']
+names_dict = {'LTD':'LIMITED','(':'', ')':'', ',':'', '.':'', '-':' ', '  ':' ',"'":'','&':' AND ','LTD':'','LIMITED':'','-':' '}
+
+trading_as_list = ['T/AS ','T/A ','TRADING AS','TRADINGAS', 'T / A',]
+
+def newTradingAs(companyname,word_list):
+    new_companyName = companyname
+    for x in word_list:
+        if x in companyname:
+            new_companyName = str.strip(companyname.partition(x)[2])
+            break
+    return new_companyName
+
+def replace_all(dict, str):
+    for key in dict:
+        str = str.replace(key, dict[key])
+    return str
+
+def process_companyName(cName):
+    new_str =  str.upper(cName)
+    new_str = replace_all(names_dict,new_str)
+    new_str = newTradingAs(new_str,trading_as_list)
+    return ' '.join(new_str.split())
+
+
+
+
+# importer_list = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\HMRC\importsNames.csv')
+importer_list = pd.read_csv(r'./Data/company_names.csv')
+
+importer_list.columns = ['NAME']
+importer_list['NAME'] = importer_list['NAME'].apply(lambda x: process_companyName(x))
+importer_list=importer_list.sample(frac=0.33)
 df = importer_list[['NAME']].drop_duplicates().reset_index(drop=True)
 df['id']=df.index
 # sample_df = pd.read_csv(r'C:\Users\S\PycharmProjects\CompanyNames\data\raw\company_names.csv')
@@ -17,7 +46,10 @@ import re
 import time
 from datasketch import MinHash, MinHashLSHForest,MinHashLSH
 from tqdm import tqdm
-y= pd.read_csv(r'C:/Users/S/PycharmProjects/CompanyNames/HMRC/matched.csv')
+# y= pd.read_csv(r'C:/Users/S/PycharmProjects/CompanyNames/HMRC/matched.csv')
+y= pd.read_csv(r'./Data/matched.csv')
+y['NAME'] = y['NAME'].apply(lambda x: process_companyName(x))
+
 def preprocess(text):
     text = re.sub(r'[^\w\s]','',text)
     tokens = text.lower()
