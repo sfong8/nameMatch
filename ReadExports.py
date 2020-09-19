@@ -26,6 +26,7 @@ for file in os.listdir(filepath):
     x2.columns = ['COMCODE','MMYYY','DESTINATION_COUNTRY','VALUE']
     x2['VALUE']=x2['VALUE'].apply(lambda  x: int(str(x[1:])))
     x2_grouped = x2.groupby(['COMCODE','MMYYY','DESTINATION_COUNTRY']).sum().reset_index()
+    x2_grouped['EU_FLAG']='Non-EU'
     master_df=pd.concat([master_df,x2_grouped])
 
 master_df.to_csv('nonEU_exports.csv',index=None )
