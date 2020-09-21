@@ -5,15 +5,14 @@ import pandas as pd
 import os
 filepath = r'C:\Users\S\PycharmProjects\nameMatch\data\NonEU_Imports'
 master_df = pd.DataFrame()
-file = 'SMKE192001'
-x= pd.read_csv(fr'{filepath}//{file}',skiprows=1,header=None, dtype=str,sep='|')
-
 for file in os.listdir(filepath):
+    print(file)
     x= pd.read_csv(fr'{filepath}//{file}',skiprows=1,header=None, dtype=str,sep='|')
+
     mmyyyy= file[8:10]+'/20'+file[6:8]
 
-    x1=x[[0,2,4,5,9,18]]
-    x1.columns=  ['MAF-COMCODE','MAF-RECORD-TYPE','MAF-COD-ALPHA','MAF-ACCOUNT-MMCCYY','MAF-COO-ALPHA','MAF-VALUE']
+    x1=x[[0,2,4,6,7,23]]
+    x1.columns=  ['MAF-COMCODE','MAF-RECORD-TYPE','MAF-COD-ALPHA','MAF-COO-ALPHA','MAF-ACCOUNT-MMCCYY','MAF-VALUE']
                   #cols = ['MAF-COMCODE',		'MAF-SITC',		'MAF-RECORD-TYPE',		'MAF-COD-SEQUENCE',		'MAF-COD-ALPHA',		'MAF-ACCOUNT-MMCCYY',		'MAF-PORT-SEQUENCE',		'MAF-PORT-ALPHA',		'MAF-FLAG-SEQUENCE',		'MAF-FLAG-ALPHA',		'MAF-TRADE-INDICATOR',		'MAF-CONTAINER',		'MAF-MODE-OF-TRANSPORT',		'MAF-INLAND-MOT',		'MAF-GOLO-SEQUENCE',		'MAF-GOLO-ALPHA',		'MAF-SUITE-INDICATOR',		'MAF-PROCEDURE-CODE',		'MAF-VALUE',		'MAF-QUANTITY-1',		'MAF-QUANTITY-2',		'MAF-INDUSTRIAL-PLANT-COMCODE']
 
     import pycountry

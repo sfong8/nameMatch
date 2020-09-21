@@ -20,12 +20,13 @@ for file in os.listdir(filepath):
 
     x1=x1[x1['MAF-RECORD-TYPE']=='0']
     x1=x1[x1['MAF-ACCOUNT-MMCCYY']==mmyyyy2]
+    x1['MMYYY'] = mmyyyy
     #list_alpha_2 = [{i.alpha_2,i.name} for i in list(pycountry.countries)]
 
     list_alpha_2={i.alpha_2: i.name for i in list(pycountry.countries)}
     x1['DESTINATION_COUNTRY']=x1['MAF-COD-ALPHA'].apply(lambda y:list_alpha_2.get(y))
 
-    x2 = x1[['MAF-COMCODE','MAF-ACCOUNT-MMCCYY','DESTINATION_COUNTRY','MAF-VALUE']]
+    x2 = x1[['MAF-COMCODE','MMYYY','DESTINATION_COUNTRY','MAF-VALUE']]
     x2.columns = ['COMCODE','MMYYY','DESTINATION_COUNTRY','VALUE']
     x2['VALUE']=x2['VALUE'].apply(lambda  x: int(str(x[1:])))
     x2_grouped = x2.groupby(['COMCODE','MMYYY','DESTINATION_COUNTRY']).sum().reset_index()
